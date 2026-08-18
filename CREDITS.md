@@ -14,6 +14,12 @@ A HoshiDev Expedition Systems title.
 
 ## Third-party assets (all free / CC0)
 
+### Kenney.nl — CC0 (EMBER 2D)
+- Tiny Town (16×16 forest, trees, characters, tools)
+- Tiny Dungeon (torch, beasts, potions)
+- UI Pack Adventure (buttons, bars, panels)
+- https://kenney.nl
+
 ### Poly Haven — CC0
 - HDRI `snowy_hillside` — Andreas Mischok
 - Texture `snow_02`

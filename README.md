@@ -2,20 +2,20 @@
 
 **HoshiDev** — 2D pixel survival. Jaga api. Cari kayu. Jangan kedinginan.
 
-Native Android (Kotlin + Canvas). Bukan HTML. Bukan WebView.
+Native Android (Kotlin + Canvas). Sprite 16×16 dari **Kenney Tiny Town / Tiny Dungeon / UI Pack** (CC0).
 
-## Main
+## Player loop
 
-- Joystick kiri — jalan
-- **A** — tebang pohon, ambil berry, nyalakan / isi api (3 kayu = api baru)
-- **EAT** — makan berry
-- Siang: kumpulin. Malam: dingin + serigala. Dekat api = hangat.
-- Lapar atau kedinginan = mati.
+Siang: tebang, ambil berry, isi unggun.  
+Malam: dingin + serigala. Api padam = masalah.  
+Lapar atau beku = mati.
 
-## Build APK
+Kontrol: joystick kiri · **A** aksi · **EAT** makan.
+
+## Build
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-GitHub Actions: `.github/workflows/android.yml` → artifact `ember-apk`.
+Actions: artifact `ember-apk`.

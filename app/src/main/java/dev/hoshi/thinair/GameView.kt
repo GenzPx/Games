@@ -7,101 +7,129 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RadialGradient
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.random.Random
 
-private const val MAP = 40
+private const val MAP = 48
 private const val TS = 16
-private const val DAY_LEN = 70f
-private const val NIGHT_LEN = 50f
+private const val DAY = 80f
+private const val NIGHT = 55f
 
-private const val T_GRASS = 0
-private const val T_DIRT = 1
-private const val T_WATER = 2
-private const val T_TREE = 3
-private const val T_STUMP = 4
-private const val T_BUSH = 5
-private const val T_BUSH_EMPTY = 6
-private const val T_ROCK = 7
+private const val GRASS = 0
+private const val DIRT = 1
+private const val PATH = 2
+private const val WATER = 3
+private const val TREE = 4
+private const val STUMP = 5
+private const val BUSH = 6
+private const val BUSH0 = 7
+private const val ROCK = 8
+private const val FLOWER = 9
 
 class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnable {
+    private val atlas = Atlas(ctx)
     private var thread: Thread? = null
     @Volatile private var running = false
 
-    private val px = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = false }
-    private val ui = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val px = Paint().apply { isFilterBitmap = false; isAntiAlias = false }
+    private val ui = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    }
     private val nightPaint = Paint()
     private val lightPaint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT) }
+    private val tmp = RectF()
 
     private val tiles = Array(MAP) { IntArray(MAP) }
-    private val rng = Random(7)
+    private val rng = Random(11)
 
-    private var pxw = 20f
-    private var pyw = 20f
-    private var pvx = 0f
-    private var pvy = 0f
+    private var x = 24f
+    private var y = 25f
     private var dir = 1
     private var walk = 0f
     private var hunger = 1f
     private var warmth = 1f
-    private var wood = 2
+    private var wood = 3
     private var food = 2
     private var day = 1
-    private var tod = 8f
-    private var fireX = 20f
-    private var fireY = 20f
-    private var fireFuel = 0.7f
-    private var hasFire = true
-    private var mode = "title" // title play dead
-    private var prompt = "Jaga apinya. Jangan kedinginan."
-    private var promptT = 3f
-    private val wolves = ArrayList<Wolf>()
+    private var clock = 10f
+    private var fireX = 24f
+    private var fireY = 24f
+    private var fire = 0.8f
+    private var lit = true
+    private var mode = "title"
+    private var toast = "Jaga api sebelum malam."
+    private var toastT = 4f
+    private var shake = 0f
+    private var scale = 4
+    private val pops = ArrayList<Pop>()
+    private val bits = ArrayList<Bit>()
+    private val wolves = ArrayList<Mob>()
 
     private var stickId = -1
-    private var stickX = 0f
-    private var stickY = 0f
-    private var stickNx = 0f
-    private var stickNy = 0f
-    private var scale = 5
-    private var camX = 0f
-    private var camY = 0f
+    private var sx = 0f
+    private var sy = 0f
 
-    data class Wolf(var x: Float, var y: Float, var vx: Float = 0f, var vy: Float = 0f)
+    data class Pop(var x: Float, var y: Float, var t: Float, val text: String)
+    data class Bit(var x: Float, var y: Float, var vx: Float, var vy: Float, var t: Float, val col: Int)
+    data class Mob(var x: Float, var y: Float)
+    data class Draw(val z: Float, val run: () -> Unit)
 
     init {
         holder.addCallback(this)
         isFocusable = true
-        gen()
+        buildMap()
     }
 
-    private fun gen() {
-        for (y in 0 until MAP) for (x in 0 until MAP) {
-            val edge = x < 2 || y < 2 || x > MAP - 3 || y > MAP - 3
-            tiles[y][x] = when {
-                edge -> T_WATER
-                hypot((x - 20).toFloat(), (y - 20).toFloat()) < 4.2f -> T_DIRT
-                rng.nextFloat() < 0.07f && hypot((x - 12).toFloat(), (y - 28).toFloat()) < 5f -> T_WATER
-                rng.nextFloat() < 0.16f -> T_TREE
-                rng.nextFloat() < 0.06f -> T_BUSH
-                rng.nextFloat() < 0.04f -> T_ROCK
-                else -> T_GRASS
+    private fun buildMap() {
+        for (j in 0 until MAP) for (i in 0 until MAP) {
+            val edge = i < 2 || j < 2 || i > MAP - 3 || j > MAP - 3
+            val pond = hypot(i - 12f, j - 34f) < 4.5f
+            tiles[j][i] = when {
+                edge || pond -> WATER
+                else -> GRASS
             }
         }
-        // clearing
-        for (y in 17..23) for (x in 17..23) {
-            if (tiles[y][x] == T_TREE || tiles[y][x] == T_WATER) tiles[y][x] = T_DIRT
+        // clearing + path
+        for (j in 20..28) for (i in 20..28) {
+            val d = hypot(i - 24f, j - 24f)
+            if (d < 5.2f) tiles[j][i] = if (d < 2.4f) DIRT else PATH
         }
-        tiles[18][18] = T_GRASS
-        pxw = 20.2f; pyw = 21.2f
-        fireX = 20.0f; fireY = 20.0f
+        for (i in 24..40) tiles[24][i] = PATH
+        for (j in 24..40) tiles[j][36] = PATH
+        // forest clusters
+        repeat(70) {
+            val i = rng.nextInt(3, MAP - 3)
+            val j = rng.nextInt(3, MAP - 3)
+            if (hypot(i - 24f, j - 24f) < 6f) return@repeat
+            if (tiles[j][i] == GRASS) tiles[j][i] = TREE
+        }
+        repeat(28) {
+            val i = rng.nextInt(3, MAP - 3)
+            val j = rng.nextInt(3, MAP - 3)
+            if (tiles[j][i] == GRASS) tiles[j][i] = BUSH
+        }
+        repeat(18) {
+            val i = rng.nextInt(3, MAP - 3)
+            val j = rng.nextInt(3, MAP - 3)
+            if (tiles[j][i] == GRASS) tiles[j][i] = ROCK
+        }
+        repeat(40) {
+            val i = rng.nextInt(3, MAP - 3)
+            val j = rng.nextInt(3, MAP - 3)
+            if (tiles[j][i] == GRASS && rng.nextFloat() < 0.7f) tiles[j][i] = FLOWER
+        }
+        x = 24.2f; y = 25.4f
+        fireX = 24f; fireY = 23.6f
+        tiles[22][22] = PATH
     }
 
     override fun surfaceCreated(h: SurfaceHolder) {
@@ -111,425 +139,442 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
 
     override fun surfaceDestroyed(h: SurfaceHolder) {
         running = false
-        thread?.join(400)
+        try { thread?.join(500) } catch (_: InterruptedException) {}
         thread = null
     }
 
-    override fun surfaceChanged(h: SurfaceHolder, format: Int, width: Int, height: Int) {
-        scale = (minOf(width / (16 * 18), height / (16 * 12))).coerceIn(3, 8)
+    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {
+        scale = (minOf(w / (16 * 20), ht / (16 * 12))).coerceIn(3, 7)
     }
 
     override fun run() {
         var last = System.nanoTime()
         while (running) {
             val now = System.nanoTime()
-            val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+            val dt = ((now - last) / 1e9f).coerceIn(0.001f, 0.05f)
             last = now
             if (mode == "play") tick(dt)
-            val c = holder.lockCanvas()
-            if (c != null) {
-                try { drawGame(c) } finally { holder.unlockCanvasAndPost(c) }
+            holder.lockCanvas()?.let {
+                try { render(it) } finally { holder.unlockCanvasAndPost(it) }
             }
-            val frame = System.nanoTime() - now
-            val sleep = 16_000_000L - frame / 1
-            if (sleep > 1_000_000) try { Thread.sleep(sleep / 1_000_000) } catch (_: InterruptedException) {}
+            val leftover = 16_000_000L - (System.nanoTime() - now)
+            if (leftover > 2_000_000) try { Thread.sleep(leftover / 1_000_000) } catch (_: InterruptedException) {}
         }
     }
 
-    private fun blocked(tx: Int, ty: Int): Boolean {
+    private fun solid(tx: Int, ty: Int): Boolean {
         if (tx !in 0 until MAP || ty !in 0 until MAP) return true
-        return when (tiles[ty][tx]) {
-            T_WATER, T_TREE, T_ROCK -> true
-            else -> false
-        }
+        return tiles[ty][tx] == WATER || tiles[ty][tx] == TREE || tiles[ty][tx] == ROCK
     }
 
     private fun tick(dt: Float) {
-        val speed = 3.4f
-        pvx = stickNx * speed
-        pvy = stickNy * speed
-        if (hypot(pvx, pvy) > 0.05f) {
-            dir = when {
-                kotlin.math.abs(pvx) > kotlin.math.abs(pvy) -> if (pvx < 0) 2 else 3
-                pvy < 0 -> 0
-                else -> 1
-            }
-            walk += dt * 8f
+        val sp = 3.15f
+        if (hypot(sx, sy) > 0.08f) {
+            dir = if (kotlin.math.abs(sx) > kotlin.math.abs(sy)) if (sx < 0) 2 else 3 else if (sy < 0) 0 else 1
+            walk += dt * 9f
+            val nx = x + sx * sp * dt
+            val ny = y + sy * sp * dt
+            if (!solid(floor(nx).toInt(), floor(y).toInt())) x = nx.coerceIn(1.3f, MAP - 1.3f)
+            if (!solid(floor(x).toInt(), floor(ny).toInt())) y = ny.coerceIn(1.3f, MAP - 1.3f)
         }
-        val nx = pxw + pvx * dt
-        val ny = pyw + pvy * dt
-        if (!blocked(floor(nx).toInt(), floor(pyw).toInt())) pxw = nx.coerceIn(1.2f, MAP - 1.2f)
-        if (!blocked(floor(pxw).toInt(), floor(ny).toInt())) pyw = ny.coerceIn(1.2f, MAP - 1.2f)
-
-        tod += dt
-        val cycle = DAY_LEN + NIGHT_LEN
-        if (tod >= cycle) {
-            tod -= cycle
+        clock += dt
+        val cycle = DAY + NIGHT
+        if (clock >= cycle) {
+            clock -= cycle
             day++
-            say("Hari $day. Cari kayu sebelum gelap.")
-            // refill some bushes
-            for (y in 0 until MAP) for (x in 0 until MAP) {
-                if (tiles[y][x] == T_BUSH_EMPTY && rng.nextFloat() < 0.55f) tiles[y][x] = T_BUSH
-            }
+            say("Hari $day. Kayu. Makanan. Api.")
+            for (j in 0 until MAP) for (i in 0 until MAP)
+                if (tiles[j][i] == BUSH0 && rng.nextFloat() < 0.6f) tiles[j][i] = BUSH
         }
-        val night = tod >= DAY_LEN
-        val nightT = if (night) ((tod - DAY_LEN) / NIGHT_LEN) else 0f
+        val night = clock >= DAY
+        if (clock in (DAY - 9f)..DAY && toastT < 0.2f) say("Matahari terbenam. Balik ke api.")
 
-        hunger = (hunger - dt * 0.012f).coerceIn(0f, 1f)
-        val nearFire = hasFire && fireFuel > 0.02f && hypot(pxw - fireX, pyw - fireY) < 3.2f
-        if (night && !nearFire) warmth -= dt * 0.055f
-        else if (nearFire) warmth = (warmth + dt * 0.12f).coerceAtMost(1f)
-        else warmth = (warmth + dt * 0.01f).coerceAtMost(1f)
-        if (hasFire) fireFuel = (fireFuel - dt * 0.018f).coerceAtLeast(0f)
-        if (fireFuel <= 0f) hasFire = false
+        hunger = (hunger - dt * 0.011f).coerceIn(0f, 1f)
+        val near = lit && fire > 0.04f && hypot(x - fireX, y - fireY) < 3.4f
+        warmth = when {
+            night && !near -> (warmth - dt * 0.05f)
+            near -> (warmth + dt * 0.14f).coerceAtMost(1f)
+            else -> (warmth + dt * 0.012f).coerceAtMost(1f)
+        }
+        if (lit) fire = (fire - dt * 0.016f).coerceAtLeast(0f)
+        if (fire <= 0f) lit = false
 
         if (night) {
-            if (wolves.size < 2 + day / 3 && rng.nextFloat() < dt * 0.25f) {
-                val side = rng.nextInt(4)
-                val wx = if (side == 0) 3f else if (side == 1) MAP - 3f else rng.nextInt(MAP).toFloat()
-                val wy = if (side == 2) 3f else if (side == 3) MAP - 3f else rng.nextInt(MAP).toFloat()
-                wolves += Wolf(wx, wy)
+            if (wolves.size < 1 + day / 2 && rng.nextFloat() < dt * 0.22f) {
+                wolves += Mob(if (rng.nextBoolean()) 3f else MAP - 3f, rng.nextInt(6, MAP - 6).toFloat())
             }
-        } else {
-            wolves.clear()
-        }
+        } else wolves.clear()
+
         val it = wolves.iterator()
         while (it.hasNext()) {
             val w = it.next()
-            val dfx = w.x - fireX
-            val dfy = w.y - fireY
-            val fireD = hypot(dfx, dfy)
-            if (hasFire && fireFuel > 0 && fireD < 4.5f) {
-                w.vx = dfx / (fireD + 0.1f) * 2.2f
-                w.vy = dfy / (fireD + 0.1f) * 2.2f
+            val fd = hypot(w.x - fireX, w.y - fireY)
+            if (lit && fire > 0.05f && fd < 4.8f) {
+                w.x += (w.x - fireX) / (fd + 0.2f) * 2.4f * dt
+                w.y += (w.y - fireY) / (fd + 0.2f) * 2.4f * dt
             } else {
-                val dx = pxw - w.x
-                val dy = pyw - w.y
-                val d = hypot(dx, dy) + 0.01f
-                w.vx = dx / d * 1.6f
-                w.vy = dy / d * 1.6f
-                if (d < 0.7f) {
-                    warmth -= 0.18f
-                    hunger -= 0.05f
-                    say("Serigala!")
-                    w.x -= dx / d * 2f
-                    w.y -= dy / d * 2f
+                val d = hypot(x - w.x, y - w.y) + 0.05f
+                w.x += (x - w.x) / d * 1.55f * dt
+                w.y += (y - w.y) / d * 1.55f * dt
+                if (d < 0.72f) {
+                    warmth -= 0.16f
+                    hunger -= 0.04f
+                    shake = 0.35f
+                    say("Digigit!")
+                    w.x -= (x - w.x) / d * 2.2f
+                    w.y -= (y - w.y) / d * 2.2f
                 }
             }
-            w.x += w.vx * dt
-            w.y += w.vy * dt
-            if (w.x < 2 || w.y < 2 || w.x > MAP - 2 || w.y > MAP - 2) it.remove()
+            if (w.x < 1.5f || w.y < 1.5f || w.x > MAP - 1.5f || w.y > MAP - 1.5f) it.remove()
         }
 
-        if (promptT > 0) promptT -= dt
+        // fire sparks
+        if (lit && fire > 0 && rng.nextFloat() < dt * 14f) {
+            bits += Bit(fireX + rng.nextFloat() * 0.4f - 0.2f, fireY, rng.nextFloat() * 0.4f - 0.2f, -1.4f - rng.nextFloat(), 0.5f, 0xFFFFCD75.toInt())
+        }
+        bits.removeAll { b ->
+            b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy -= 0.4f * dt
+            b.t <= 0
+        }
+        pops.removeAll { p -> p.t -= dt; p.y -= dt * 0.6f; p.t <= 0 }
+        if (shake > 0) shake -= dt
+        if (toastT > 0) toastT -= dt
         if (hunger <= 0f) die("Kamu kelaparan.")
-        else if (warmth <= 0f) die("Kamu kedinginan.")
+        else if (warmth <= 0f) die("Kamu membeku.")
     }
 
     private fun die(why: String) {
         mode = "dead"
-        prompt = "$why  Malam ke-$day."
-        promptT = 99f
+        toast = "$why  Hari ke-$day."
+        toastT = 99f
         wolves.clear()
     }
 
-    private fun say(s: String) {
-        prompt = s
-        promptT = 3.2f
-    }
+    private fun say(s: String) { toast = s; toastT = 3.4f }
+
+    private fun pop(tx: Float, ty: Float, s: String) { pops += Pop(tx, ty, 1.1f, s) }
 
     private fun interact() {
-        if (mode == "title") {
-            reset(); mode = "play"; say("Ambil kayu. Nyalakan api sebelum malam.")
+        if (mode != "play") {
+            reset(); mode = "play"; say("Tebang pohon. Ambil berry. Isi api.")
             return
         }
-        if (mode == "dead") {
-            reset(); mode = "play"; say("Coba lagi. Jaga apinya.")
-            return
-        }
-        val fx = floor(pxw + when (dir) { 2 -> -0.8f; 3 -> 0.8f; else -> 0f }).toInt()
-        val fy = floor(pyw + when (dir) { 0 -> -0.8f; 1 -> 0.8f; else -> 0f }).toInt()
+        val fx = floor(x + when (dir) { 2 -> -0.85f; 3 -> 0.85f; else -> 0f }).toInt()
+        val fy = floor(y + when (dir) { 0 -> -0.85f; 1 -> 0.85f; else -> 0f }).toInt()
         if (fx !in 0 until MAP || fy !in 0 until MAP) return
         when (tiles[fy][fx]) {
-            T_TREE -> {
-                tiles[fy][fx] = T_STUMP
+            TREE -> {
+                tiles[fy][fx] = STUMP
                 wood++
-                say("Kayu +1")
+                shake = 0.18f
+                pop(fx + 0.5f, fy.toFloat(), "+1 kayu")
+                repeat(6) {
+                    bits += Bit(fx + 0.5f, fy + 0.5f, rng.nextFloat() * 2 - 1, -1.2f, 0.4f, 0xFF8B5A3C.toInt())
+                }
+                say("Kayu. Api butuh makan.")
             }
-            T_BUSH -> {
-                tiles[fy][fx] = T_BUSH_EMPTY
+            BUSH -> {
+                tiles[fy][fx] = BUSH0
                 food++
-                say("Berry +1")
+                pop(fx + 0.5f, fy.toFloat(), "+1 berry")
+                say("Berry. Makan sebelum lapar.")
             }
             else -> {
-                if (wood >= 3 && !hasFire) {
-                    fireX = pxw; fireY = pyw; hasFire = true; fireFuel = 0.85f; wood -= 3
-                    say("Api menyala.")
-                } else if (wood >= 1 && hasFire && hypot(pxw - fireX, pyw - fireY) < 2.2f) {
-                    wood--; fireFuel = (fireFuel + 0.35f).coerceAtMost(1f)
-                    say("Kayu ke api.")
-                } else {
-                    say("Hadap pohon / semak. 3 kayu = api baru.")
-                }
+                if (wood >= 3 && !lit) {
+                    fireX = x; fireY = y; lit = true; fire = 0.9f; wood -= 3
+                    say("Api hidup lagi.")
+                    pop(x, y - 0.4f, "API")
+                } else if (wood >= 1 && lit && hypot(x - fireX, y - fireY) < 2.3f) {
+                    wood--; fire = (fire + 0.34f).coerceAtMost(1f)
+                    pop(fireX, fireY - 0.5f, "fuel")
+                    say("Kayu ke unggun.")
+                } else say("Hadap pohon / semak. 3 kayu = nyalakan api.")
             }
         }
     }
 
     private fun eat() {
         if (mode != "play") return
-        if (food <= 0) { say("Makanan habis."); return }
-        food--; hunger = (hunger + 0.38f).coerceAtMost(1f)
+        if (food <= 0) { say("Berry habis."); return }
+        food--; hunger = (hunger + 0.4f).coerceAtMost(1f)
+        pop(x, y - 0.5f, "yum")
         say("Kenyang.")
     }
 
     private fun reset() {
-        gen()
-        hunger = 1f; warmth = 1f; wood = 2; food = 2
-        day = 1; tod = 8f; fireFuel = 0.7f; hasFire = true
-        wolves.clear()
-        stickNx = 0f; stickNy = 0f
+        buildMap()
+        hunger = 1f; warmth = 1f; wood = 3; food = 2
+        day = 1; clock = 10f; fire = 0.8f; lit = true
+        wolves.clear(); bits.clear(); pops.clear()
+        sx = 0f; sy = 0f
     }
 
-    private fun nightAmt(): Float {
-        if (tod < DAY_LEN - 8f) return 0f
-        if (tod < DAY_LEN) return (tod - (DAY_LEN - 8f)) / 8f
-        if (tod > DAY_LEN + NIGHT_LEN - 8f) return 1f - (tod - (DAY_LEN + NIGHT_LEN - 8f)) / 8f
+    private fun dusk(): Float {
+        if (clock < DAY - 10f) return 0f
+        if (clock < DAY) return (clock - (DAY - 10f)) / 10f
+        if (clock > DAY + NIGHT - 8f) return (1f - (clock - (DAY + NIGHT - 8f)) / 8f).coerceAtLeast(0f)
         return 1f
     }
 
-    private fun drawGame(c: Canvas) {
-        val w = c.width
-        val h = c.height
-        c.drawColor(Pal.ink)
-
-        if (mode == "title") {
-            drawTitle(c, w, h)
-            drawControls(c, w, h, dim = true)
-            return
-        }
+    private fun render(c: Canvas) {
+        val W = c.width
+        val H = c.height
+        c.drawColor(0xFF1B2430.toInt())
+        if (mode == "title") { drawTitle(c, W, H); drawPad(c, W, H); return }
 
         val tw = TS * scale
-        camX = pxw * tw - w / 2f + tw / 2f
-        camY = pyw * tw - h / 2f + tw / 2f
-        val frame = (System.currentTimeMillis() / 180).toInt()
+        var camX = x * tw - W / 2f
+        var camY = y * tw - H / 2f
+        if (shake > 0) {
+            camX += (rng.nextFloat() - 0.5f) * 10f * shake
+            camY += (rng.nextFloat() - 0.5f) * 10f * shake
+        }
 
         val x0 = (camX / tw).toInt() - 1
         val y0 = (camY / tw).toInt() - 1
-        val x1 = x0 + w / tw + 3
-        val y1 = y0 + h / tw + 3
+        val x1 = x0 + W / tw + 3
+        val y1 = y0 + H / tw + 3
+
+        fun gx(tx: Float) = tx * tw - camX
+        fun gy(ty: Float) = ty * tw - camY
+
         for (ty in y0..y1) for (tx in x0..x1) {
             if (tx !in 0 until MAP || ty !in 0 until MAP) continue
-            val sx = tx * tw - camX
-            val sy = ty * tw - camY
             val t = tiles[ty][tx]
             val ground = when (t) {
-                T_DIRT, T_STUMP -> Sprites.dirt()
-                T_WATER -> Sprites.water(frame)
-                else -> Sprites.grass()
+                DIRT -> atlas.t(0, 1)
+                PATH -> atlas.t(6, 3)
+                WATER -> atlas.d(0, 3)
+                else -> if ((tx + ty) and 1 == 0) atlas.t(0, 0) else atlas.t(1, 0)
             }
-            c.drawBitmap(Sprites.scale(ground, scale), sx, sy, px)
-            val deco = when (t) {
-                T_TREE -> Sprites.tree()
-                T_STUMP -> Sprites.stump()
-                T_BUSH -> Sprites.bush(true)
-                T_BUSH_EMPTY -> Sprites.bush(false)
-                T_ROCK -> Sprites.rock()
-                else -> null
-            }
-            if (deco != null) {
-                val d = Sprites.scale(deco, scale)
-                c.drawBitmap(d, sx + (tw - d.width) / 2f, sy + tw - d.height, px)
-            }
+            c.drawBitmap(atlas.s(ground, scale), gx(tx.toFloat()), gy(ty.toFloat()), px)
+            if (t == FLOWER) c.drawBitmap(atlas.s(atlas.t(2, 0), scale), gx(tx.toFloat()), gy(ty.toFloat()), px)
         }
 
+        val draw = ArrayList<Draw>(80)
+        for (ty in y0..y1) for (tx in x0..x1) {
+            if (tx !in 0 until MAP || ty !in 0 until MAP) continue
+            val t = tiles[ty][tx]
+            val sx = gx(tx.toFloat())
+            val sy = gy(ty.toFloat())
+            when (t) {
+                TREE -> draw += Draw(ty + 0.95f) {
+                    c.drawBitmap(atlas.s(atlas.t(4, 0, 1, 3), scale), sx, sy - 2 * tw, px)
+                }
+                STUMP -> draw += Draw(ty + 0.6f) {
+                    c.drawBitmap(atlas.s(atlas.t(4, 2), scale), sx, sy, px)
+                }
+                BUSH, BUSH0 -> draw += Draw(ty + 0.55f) {
+                    c.drawBitmap(atlas.s(if (t == BUSH) atlas.t(5, 0) else atlas.t(5, 1), scale), sx, sy, px)
+                    if (t == BUSH) c.drawBitmap(atlas.s(atlas.t(5, 2), scale), sx, sy + scale * 6f, px)
+                }
+                ROCK -> draw += Draw(ty + 0.5f) {
+                    c.drawBitmap(atlas.s(atlas.d(0, 0), scale), sx, sy, px)
+                }
+            }
+        }
         // tent
-        val tent = Sprites.scale(Sprites.tent(), scale)
-        c.drawBitmap(tent, 18 * tw - camX, 18 * tw - camY - scale * 2, px)
-
-        if (hasFire && fireFuel > 0) {
-            val fb = Sprites.scale(Sprites.fire(frame), scale)
-            c.drawBitmap(fb, fireX * tw - camX - fb.width / 2f, fireY * tw - camY - fb.height + scale * 4, px)
+        draw += Draw(22.8f) {
+            c.drawBitmap(atlas.s(atlas.t(8, 4, 2, 2), scale), gx(21.5f), gy(21.2f), px)
         }
-
-        for (wolf in wolves) {
-            val wb = Sprites.scale(Sprites.wolf(frame), scale)
-            c.drawBitmap(wb, wolf.x * tw - camX - wb.width / 2f, wolf.y * tw - camY - wb.height + scale, px)
+        if (lit && fire > 0) {
+            draw += Draw(fireY + 0.4f) {
+                val fr = ((System.currentTimeMillis() / 120) % 2).toInt()
+                c.drawBitmap(atlas.s(atlas.d(5, 2), scale), gx(fireX) - tw / 2f, gy(fireY) - tw / 4f, px)
+                c.drawBitmap(atlas.s(atlas.d(5, 1), scale), gx(fireX) - tw / 2f, gy(fireY) - tw * 0.95f - fr, px)
+            }
         }
+        for (w in wolves) {
+            val mob = w
+            draw += Draw(mob.y + 0.3f) {
+                c.drawBitmap(atlas.s(atlas.d(2, 9), scale), gx(mob.x) - tw / 2f, gy(mob.y) - tw / 2f, px)
+            }
+        }
+        draw += Draw(y + 0.35f) {
+            val bob = if (hypot(sx, sy) > 0.1f) sin(walk * 2.2f) * scale * 0.4f else 0f
+            val ch = atlas.s(atlas.t(8, 8), scale)
+            c.drawBitmap(ch, W / 2f - ch.width / 2f, H / 2f - ch.height / 2f + bob, px)
+        }
+        draw.sortBy { it.z }
+        for (d in draw) d.run()
 
-        val pb = Sprites.scale(Sprites.player(dir, walk.toInt()), scale)
-        c.drawBitmap(pb, w / 2f - pb.width / 2f, h / 2f - pb.height / 2f, px)
+        for (b in bits) {
+            ui.color = b.col
+            c.drawRect(gx(b.x), gy(b.y), gx(b.x) + scale.toFloat(), gy(b.y) + scale.toFloat(), ui)
+        }
+        ui.textAlign = Paint.Align.CENTER
+        ui.textSize = 13f
+        ui.color = 0xFFFFF3C4.toInt()
+        for (p in pops) c.drawText(p.text, gx(p.x), gy(p.y), ui)
 
-        val night = nightAmt()
+        val night = dusk()
         if (night > 0.02f) {
-            val save = c.saveLayer(0f, 0f, w.toFloat(), h.toFloat(), null)
-            nightPaint.color = Color.argb((200 * night).toInt(), 8, 10, 22)
-            c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), nightPaint)
-            if (hasFire && fireFuel > 0) {
-                val cx = fireX * tw - camX
-                val cy = fireY * tw - camY
-                val r = 5.2f * tw * (0.75f + 0.25f * fireFuel)
+            val layer = c.saveLayer(0f, 0f, W.toFloat(), H.toFloat(), null)
+            nightPaint.color = Color.argb((210 * night).toInt(), 6, 8, 20)
+            c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), nightPaint)
+            if (lit && fire > 0) {
+                val cx = gx(fireX)
+                val cy = gy(fireY)
+                val r = 5.6f * tw * (0.7f + 0.3f * fire)
                 lightPaint.shader = RadialGradient(cx, cy, r, 0xFFFFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP)
                 c.drawCircle(cx, cy, r, lightPaint)
             }
-            val pr = 2.1f * tw
-            lightPaint.shader = RadialGradient(w / 2f, h / 2f, pr, 0xAAFFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP)
-            c.drawCircle(w / 2f, h / 2f, pr, lightPaint)
-            c.restoreToCount(save)
+            lightPaint.shader = RadialGradient(W / 2f, H / 2f, 2.3f * tw, 0x99FFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP)
+            c.drawCircle(W / 2f, H / 2f, 2.3f * tw, lightPaint)
+            c.restoreToCount(layer)
         }
 
-        drawHud(c, w, h)
-        drawControls(c, w, h, dim = false)
-        if (mode == "dead") drawDead(c, w, h)
+        drawHud(c, W, H)
+        drawPad(c, W, H)
+        if (mode == "dead") drawDead(c, W, H)
     }
 
-    private fun drawTitle(c: Canvas, w: Int, h: Int) {
-        ui.color = Pal.gold
+    private fun drawTitle(c: Canvas, W: Int, H: Int) {
+        // fake forest bg
+        val tw = TS * scale
+        for (j in 0..8) for (i in 0..14) {
+            c.drawBitmap(atlas.s(atlas.t(0, 0), scale), (i * tw).toFloat(), (j * tw).toFloat(), px)
+            if ((i + j) % 4 == 0) c.drawBitmap(atlas.s(atlas.t(4, 0, 1, 3), scale), (i * tw).toFloat(), (j * tw - 2 * tw).toFloat(), px)
+        }
+        atlas.nine(c, atlas.btnBrown, W / 2 - 170, H / 2 - 90, 340, 150, px)
         ui.textAlign = Paint.Align.CENTER
-        ui.textSize = 42f
-        ui.isFakeBoldText = true
-        c.drawText("EMBER", w / 2f, h * 0.32f, ui)
-        ui.textSize = 14f
-        ui.isFakeBoldText = false
-        ui.color = 0xFFC9C2B4.toInt()
-        c.drawText("HOSHIDEV", w / 2f, h * 0.32f + 22f, ui)
-        ui.textSize = 16f
-        c.drawText("Jaga api. Cari kayu. Jangan kedinginan.", w / 2f, h * 0.48f, ui)
-        ui.color = Pal.fire
-        c.drawText("TAP PANJAT / A  untuk mulai", w / 2f, h * 0.58f, ui)
-        val mark = Sprites.scale(Sprites.logoMark(), 4)
-        c.drawBitmap(mark, w / 2f - mark.width / 2f, h * 0.16f, px)
+        ui.color = 0xFFFFE7A8.toInt()
+        ui.textSize = 40f
+        c.drawText("EMBER", W / 2f, H / 2f - 28f, ui)
+        ui.textSize = 13f
+        ui.color = 0xFFD9C59A.toInt()
+        c.drawText("HOSHIDEV  ·  jaga apinya", W / 2f, H / 2f, ui)
+        ui.textSize = 15f
+        ui.color = 0xFFEF7D57.toInt()
+        c.drawText("Tap A untuk masuk hutan", W / 2f, H / 2f + 32f, ui)
     }
 
-    private fun drawDead(c: Canvas, w: Int, h: Int) {
-        ui.color = 0xAA05070C.toInt()
-        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), ui)
-        ui.color = Pal.berry
+    private fun drawDead(c: Canvas, W: Int, H: Int) {
+        ui.color = 0xB305070C.toInt()
+        c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), ui)
+        atlas.nine(c, atlas.btnBrown, W / 2 - 180, H / 2 - 80, 360, 150, px)
         ui.textAlign = Paint.Align.CENTER
-        ui.textSize = 28f
-        ui.isFakeBoldText = true
-        c.drawText("API PADAM", w / 2f, h * 0.42f, ui)
-        ui.isFakeBoldText = false
-        ui.textSize = 16f
+        ui.color = 0xFFB13E53.toInt()
+        ui.textSize = 26f
+        c.drawText("API PADAM", W / 2f, H / 2f - 20f, ui)
         ui.color = 0xFFE8E0D2.toInt()
-        c.drawText(prompt, w / 2f, h * 0.50f, ui)
-        ui.color = Pal.gold
-        c.drawText("Tap A untuk coba lagi", w / 2f, h * 0.60f, ui)
+        ui.textSize = 15f
+        c.drawText(toast, W / 2f, H / 2f + 10f, ui)
+        ui.color = 0xFFC9A227.toInt()
+        c.drawText("Tap A — coba lagi", W / 2f, H / 2f + 40f, ui)
     }
 
-    private fun drawHud(c: Canvas, w: Int, h: Int) {
+    private fun drawHud(c: Canvas, W: Int, H: Int) {
+        atlas.nine(c, atlas.btnBrown, 10, 8, 196, 108, px)
         ui.textAlign = Paint.Align.LEFT
-        ui.textSize = 14f
-        ui.color = 0xFFE8E0D2.toInt()
-        val night = tod >= DAY_LEN
-        c.drawText("HARI $day   ${if (night) "MALAM" else "SIANG"}", 16f, 28f, ui)
-        bar(c, 16f, 40f, 140f, hunger, Pal.berry, "LAPAR")
-        bar(c, 16f, 62f, 140f, warmth, Pal.flame, "HANGAT")
-        if (hasFire) bar(c, 16f, 84f, 140f, fireFuel, Pal.fire, "API")
+        ui.textSize = 13f
+        ui.color = 0xFFFFE7A8.toInt()
+        val night = clock >= DAY
+        c.drawText("HARI $day   ${if (night) "MALAM" else "SIANG"}", 22f, 28f, ui)
+        meter(c, 22, 38, 170, hunger, atlas.barRed)
+        meter(c, 22, 56, 170, warmth, atlas.barBlue)
+        if (lit) meter(c, 22, 74, 170, fire, atlas.barGreen)
+        ui.textSize = 10f
+        ui.color = 0xEEFFFFFF.toInt()
+        c.drawText("LAPAR", 26f, 48f, ui)
+        c.drawText("HANGAT", 26f, 66f, ui)
+        if (lit) c.drawText("API", 26f, 84f, ui)
 
-        val iw = Sprites.scale(Sprites.woodIcon(), 3)
-        val ifo = Sprites.scale(Sprites.foodIcon(), 3)
-        c.drawBitmap(iw, 16f, 104f, px)
-        ui.color = Pal.white
-        ui.textSize = 16f
-        c.drawText("x$wood", 16f + iw.width + 6f, 104f + 22f, ui)
-        c.drawBitmap(ifo, 90f, 104f, px)
-        c.drawText("x$food", 90f + ifo.width + 6f, 104f + 22f, ui)
+        // inventory
+        val ix = W / 2 - 70
+        val iy = 12
+        slot(c, ix, iy, atlas.s(atlas.t(7, 9), 2), wood)
+        slot(c, ix + 72, iy, atlas.s(atlas.t(5, 2), 2), food)
 
-        if (promptT > 0) {
+        if (toastT > 0) {
+            atlas.nine(c, atlas.btnBrown, W / 2 - 190, H - 132, 380, 36, px)
             ui.textAlign = Paint.Align.CENTER
-            ui.textSize = 15f
-            ui.color = Pal.gold
-            c.drawText(prompt, w / 2f, h - 118f, ui)
+            ui.textSize = 14f
+            ui.color = 0xFFFFE7A8.toInt()
+            c.drawText(toast, W / 2f, H - 108f, ui)
         }
     }
 
-    private fun bar(c: Canvas, x: Float, y: Float, w: Float, v: Float, col: Int, label: String) {
-        ui.color = 0x66000000
-        c.drawRoundRect(x, y, x + w, y + 12f, 4f, 4f, ui)
-        ui.color = col
-        c.drawRoundRect(x + 1, y + 1, x + 1 + (w - 2) * v.coerceIn(0f, 1f), y + 11f, 3f, 3f, ui)
-        ui.color = 0xCCFFFFFF.toInt()
-        ui.textSize = 9f
-        ui.textAlign = Paint.Align.LEFT
-        c.drawText(label, x + 4f, y + 10f, ui)
+    private fun meter(c: Canvas, x: Int, y: Int, w: Int, v: Float, fill: android.graphics.Bitmap) {
+        atlas.nine(c, atlas.barWhite, x, y, w, 14, px)
+        val fw = ((w - 4) * v.coerceIn(0f, 1f)).toInt()
+        if (fw > 2) {
+            val src = Rect(0, 0, fill.width, fill.height)
+            val dst = Rect(x + 2, y + 2, x + 2 + fw, y + 12)
+            c.drawBitmap(fill, src, dst, px)
+        }
     }
 
-    private fun drawControls(c: Canvas, w: Int, h: Int, dim: Boolean) {
-        val cx = 90f
-        val cy = h - 90f
-        val r = 64f
-        ui.style = Paint.Style.STROKE
-        ui.strokeWidth = 3f
-        ui.color = if (dim) 0x33E8E0D2 else 0x66E8E0D2
-        c.drawCircle(cx, cy, r, ui)
-        ui.style = Paint.Style.FILL
-        ui.color = 0x99C9A227.toInt()
-        c.drawCircle(cx + stickNx * 36f, cy + stickNy * 36f, 22f, ui)
-
-        // A interact
-        val ax = w - 86f
-        val ay = h - 96f
-        ui.color = 0xCCEF7D57.toInt()
-        c.drawCircle(ax, ay, 36f, ui)
-        ui.color = Pal.ink
-        ui.textAlign = Paint.Align.CENTER
+    private fun slot(c: Canvas, x: Int, y: Int, icon: Bitmap, n: Int) {
+        atlas.nine(c, atlas.btnGrey, x, y, 64, 36, px)
+        c.drawBitmap(icon, x + 6f, y + 4f, px)
+        ui.textAlign = Paint.Align.LEFT
         ui.textSize = 16f
+        ui.color = 0xFF1A1C2C.toInt()
+        c.drawText("x$n", x + 32f, y + 24f, ui)
+    }
+
+    private fun drawPad(c: Canvas, W: Int, H: Int) {
+        val cx = 88f
+        val cy = H - 88f
+        c.drawBitmap(atlas.s(atlas.knobDark, 2), cx - atlas.knobDark.width, cy - atlas.knobDark.height, px)
+        val kn = atlas.s(atlas.knob, 2)
+        c.drawBitmap(kn, cx - kn.width / 2f + sx * 34f, cy - kn.height / 2f + sy * 34f, px)
+
+        val ax = W - 92f
+        val ay = H - 96f
+        val aBtn = atlas.s(atlas.btnRed, 1)
+        c.drawBitmap(aBtn, ax - aBtn.width / 2f, ay - aBtn.height / 2f, px)
+        ui.textAlign = Paint.Align.CENTER
+        ui.textSize = 18f
+        ui.color = 0xFFFFF3C4.toInt()
         c.drawText("A", ax, ay + 6f, ui)
-        // B eat
-        val bx = w - 160f
-        val by = h - 70f
-        ui.color = 0xCC56A04A.toInt()
-        c.drawCircle(bx, by, 26f, ui)
-        ui.color = Pal.ink
-        ui.textSize = 14f
-        c.drawText("EAT", bx, by + 5f, ui)
+
+        val bx = W - 168f
+        val by = H - 72f
+        val bBtn = atlas.s(atlas.btnBrown, 1)
+        c.drawBitmap(bBtn, bx - bBtn.width / 2f, by - bBtn.height / 2f, px)
+        ui.textSize = 12f
+        c.drawText("EAT", bx, by + 4f, ui)
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        val w = width
-        val h = height
+        val W = width
+        val H = height
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val i = e.actionIndex
-                val x = e.getX(i)
-                val y = e.getY(i)
+                val px = e.getX(i)
+                val py = e.getY(i)
                 val id = e.getPointerId(i)
-                if (hypot(x - 90f, y - (h - 90f)) < 80f) {
-                    stickId = id
-                    updateStick(x, y, h)
-                } else if (hypot(x - (w - 86f), y - (h - 96f)) < 48f) {
-                    interact()
-                } else if (hypot(x - (w - 160f), y - (h - 70f)) < 36f) {
-                    eat()
-                } else if (mode != "play") {
-                    interact()
+                when {
+                    hypot(px - 88f, py - (H - 88f)) < 78f -> {
+                        stickId = id; stick(px, py, H)
+                    }
+                    hypot(px - (W - 92f), py - (H - 96f)) < 46f -> interact()
+                    hypot(px - (W - 168f), py - (H - 72f)) < 40f -> eat()
+                    mode != "play" -> interact()
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                for (i in 0 until e.pointerCount) {
-                    if (e.getPointerId(i) == stickId) updateStick(e.getX(i), e.getY(i), h)
-                }
+                for (i in 0 until e.pointerCount)
+                    if (e.getPointerId(i) == stickId) stick(e.getX(i), e.getY(i), H)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
-                val id = e.getPointerId(e.actionIndex)
-                if (id == stickId) {
-                    stickId = -1
-                    stickNx = 0f
-                    stickNy = 0f
+                if (e.getPointerId(e.actionIndex) == stickId) {
+                    stickId = -1; sx = 0f; sy = 0f
                 }
             }
         }
         return true
     }
 
-    private fun updateStick(x: Float, y: Float, h: Int) {
-        val cx = 90f
-        val cy = h - 90f
-        var dx = x - cx
-        var dy = y - cy
+    private fun stick(px: Float, py: Float, H: Int) {
+        var dx = px - 88f
+        var dy = py - (H - 88f)
         val len = hypot(dx, dy)
-        if (len > 54f) { dx = dx / len * 54f; dy = dy / len * 54f }
-        stickNx = (dx / 54f).coerceIn(-1f, 1f)
-        stickNy = (dy / 54f).coerceIn(-1f, 1f)
+        if (len > 52f) { dx = dx / len * 52f; dy = dy / len * 52f }
+        sx = (dx / 52f).coerceIn(-1f, 1f)
+        sy = (dy / 52f).coerceIn(-1f, 1f)
     }
 }
