@@ -20,6 +20,16 @@ class Atlas(ctx: Context) {
     val barWhite: Bitmap
     val knob: Bitmap
     val knobDark: Bitmap
+    val gtAtk: Bitmap
+    val gtDash: Bitmap
+    val gtSkill: Bitmap
+    val gtStick: Bitmap
+    val gtKnob: Bitmap
+    val gtFace: Bitmap
+    val knightD: Bitmap
+    val knightL: Bitmap
+    val knightR: Bitmap
+    val knightU: Bitmap
 
     private val crop = HashMap<String, Bitmap>()
     private val scaled = HashMap<String, Bitmap>()
@@ -44,6 +54,33 @@ class Atlas(ctx: Context) {
         barWhite = a("ui/d_progress_white.png")
         knob = a("ui/round_brown.png")
         knobDark = a("ui/round_brown_dark.png")
+        gtAtk = a("ui/gt_atk.png")
+        gtDash = a("ui/gt_dash.png")
+        gtSkill = a("ui/gt_skill.png")
+        gtStick = a("ui/gt_stick.png")
+        gtKnob = a("ui/gt_knob.png")
+        gtFace = a("ui/gt_portrait.png")
+        knightD = a("gfx/knight_d.png")
+        knightL = a("gfx/knight_l.png")
+        knightR = a("gfx/knight_r.png")
+        knightU = a("gfx/knight_u.png")
+    }
+
+    fun hero(dir: Int): Bitmap = when (dir) {
+        0 -> knightU
+        2 -> knightL
+        3 -> knightR
+        else -> knightD
+    }
+
+    fun fit(srcBmp: Bitmap, w: Int, h: Int): Bitmap {
+        val ww = w.coerceAtLeast(1)
+        val hh = h.coerceAtLeast(1)
+        val k = "f${System.identityHashCode(srcBmp)}_${ww}x$hh"
+        scaled[k]?.let { return it }
+        val out = Bitmap.createScaledBitmap(srcBmp, ww, hh, true)
+        scaled[k] = out
+        return out
     }
 
     fun t(c: Int, r: Int, w: Int = 1, h: Int = 1): Bitmap {

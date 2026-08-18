@@ -81,6 +81,9 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
     private var stickId = -1
     private var sx = 0f
     private var sy = 0f
+    private var dashing = false
+    private var atkDown = false
+    private var paused = false
 
     data class Pop(var x: Float, var y: Float, var t: Float, val text: String)
     data class Bit(var x: Float, var y: Float, var vx: Float, var vy: Float, var t: Float, val col: Int)
@@ -158,7 +161,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
             val now = System.nanoTime()
             val dt = ((now - last) / 1e9f).coerceIn(0.001f, 0.05f)
             last = now
-            if (mode == "play") tick(dt)
+            if (mode == "play" && !paused) tick(dt)
+            pumpMusic()
             holder.lockCanvas()?.let {
                 try { render(it) } finally { holder.unlockCanvasAndPost(it) }
             }
@@ -173,7 +177,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
     }
 
     private fun tick(dt: Float) {
-        val sp = 3.15f
+        val sp = if (dashing) 5.4f else 3.15f
+        if (dashing) warmth = (warmth - dt * 0.02f).coerceAtLeast(0f)
         if (hypot(sx, sy) > 0.08f) {
             dir = if (kotlin.math.abs(sx) > kotlin.math.abs(sy)) if (sx < 0) 2 else 3 else if (sy < 0) 0 else 1
             walk += dt * 9f
@@ -228,6 +233,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
                     hunger -= 0.04f
                     shake = 0.35f
                     say("Digigit!")
+                    pop(x, y - 0.5f, "HIT")
                     w.x -= (x - w.x) / d * 2.2f
                     w.y -= (y - w.y) / d * 2.2f
                 }
@@ -255,6 +261,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         toast = "$why  Hari ke-$day."
         toastT = 99f
         wolves.clear()
+        paused = false
         audio.playSfx("dead", 0.85f)
     }
 
@@ -331,7 +338,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         if (mode != "play") return
         if (food <= 0) { say("Berry habis."); return }
         food--; hunger = (hunger + 0.4f).coerceAtMost(1f)
-        pop(x, y - 0.5f, "yum")
+        audio.playSfx("eat", 0.8f)
+        pop(x, y - 0.5f, "+HP")
         say("Kenyang.")
     }
 
@@ -341,6 +349,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         day = 1; clock = 10f; fire = 0.8f; lit = true
         wolves.clear(); bits.clear(); pops.clear()
         sx = 0f; sy = 0f
+        paused = false
     }
 
     private fun dusk(): Float {
@@ -354,7 +363,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         val W = c.width
         val H = c.height
         c.drawColor(0xFF1B2430.toInt())
-        if (mode == "title") { drawTitle(c, W, H); drawPad(c, W, H); return }
+        if (mode == "title") { drawTitle(c, W, H); return }
 
         val tw = TS * scale
         var camX = x * tw - W / 2f
@@ -425,9 +434,19 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
             }
         }
         draw += Draw(y + 0.35f) {
-            val bob = if (hypot(sx, sy) > 0.1f) sin(walk * 2.2f) * scale * 0.4f else 0f
-            val ch = atlas.s(atlas.t(8, 8), scale)
-            c.drawBitmap(ch, W / 2f - ch.width / 2f, H / 2f - ch.height / 2f + bob, px)
+            val bob = if (hypot(sx, sy) > 0.1f) sin(walk * 2.2f) * scale * 0.35f else 0f
+            val ch = atlas.fit(atlas.hero(dir), (tw * 11) / 10, (tw * 15) / 10)
+            val px0 = W / 2f - ch.width / 2f
+            val py0 = H / 2f - ch.height * 0.72f + bob
+            c.drawBitmap(ch, px0, py0, px)
+            val bw = tw * 0.88f
+            val bh = 6f
+            val bx = W / 2f - bw / 2f
+            val by = py0 + ch.height + 2f
+            ui.color = 0xCC10141C.toInt()
+            c.drawRoundRect(bx, by, bx + bw, by + bh, 3f, 3f, ui)
+            ui.color = if (hunger > 0.35f) 0xFF3DDC6A.toInt() else 0xFFE84D4D.toInt()
+            c.drawRoundRect(bx + 1f, by + 1f, bx + 1f + (bw - 2f) * hunger.coerceIn(0f, 1f), by + bh - 1f, 2f, 2f, ui)
         }
         draw.sortBy { it.z }
         for (d in draw) d.run()
@@ -460,116 +479,149 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
 
         drawHud(c, W, H)
         drawPad(c, W, H)
+        if (paused && mode == "play") drawPause(c, W, H)
         if (mode == "dead") drawDead(c, W, H)
     }
 
     private fun drawTitle(c: Canvas, W: Int, H: Int) {
-        // fake forest bg
         val tw = TS * scale
         for (j in 0..8) for (i in 0..14) {
             c.drawBitmap(atlas.s(atlas.t(0, 0), scale), (i * tw).toFloat(), (j * tw).toFloat(), px)
             if ((i + j) % 4 == 0) c.drawBitmap(atlas.s(atlas.t(4, 0, 1, 3), scale), (i * tw).toFloat(), (j * tw - 2 * tw).toFloat(), px)
         }
-        atlas.nine(c, atlas.btnBrown, W / 2 - 170, H / 2 - 90, 340, 150, px)
+        val face = atlas.fit(atlas.gtFace, 88, 88)
+        c.drawBitmap(face, W / 2f - 44f, H * 0.18f, ui)
         ui.textAlign = Paint.Align.CENTER
-        ui.color = 0xFFFFE7A8.toInt()
-        ui.textSize = 40f
-        c.drawText("EMBER", W / 2f, H / 2f - 28f, ui)
-        ui.textSize = 13f
-        ui.color = 0xFFD9C59A.toInt()
-        c.drawText("HOSHIDEV  ·  jaga apinya", W / 2f, H / 2f, ui)
-        ui.textSize = 15f
-        ui.color = 0xFFEF7D57.toInt()
-        c.drawText("Tap A untuk masuk hutan", W / 2f, H / 2f + 32f, ui)
+        ui.color = 0xFFFFE566.toInt()
+        ui.textSize = 42f
+        c.drawText("EMBER", W / 2f, H * 0.42f, ui)
+        ui.textSize = 14f
+        ui.color = 0xCCFFFFFF.toInt()
+        c.drawText("HOSHIDEV", W / 2f, H * 0.42f + 22f, ui)
+        ui.textSize = 16f
+        ui.color = 0xFFFFE566.toInt()
+        c.drawText("TAP  ATK  TO  START", W / 2f, H * 0.55f, ui)
+        drawPad(c, W, H)
     }
 
     private fun drawDead(c: Canvas, W: Int, H: Int) {
-        ui.color = 0xB305070C.toInt()
+        ui.color = 0xD0051018.toInt()
         c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), ui)
-        atlas.nine(c, atlas.btnBrown, W / 2 - 180, H / 2 - 80, 360, 150, px)
+        val face = atlas.fit(atlas.gtFace, 96, 96)
+        c.drawBitmap(face, W / 2f - 48f, H * 0.22f, ui)
         ui.textAlign = Paint.Align.CENTER
-        ui.color = 0xFFB13E53.toInt()
-        ui.textSize = 26f
-        c.drawText("API PADAM", W / 2f, H / 2f - 20f, ui)
-        ui.color = 0xFFE8E0D2.toInt()
+        ui.color = 0xFFFFFFFF.toInt()
+        ui.textSize = 28f
+        c.drawText("GAME OVER", W / 2f, H * 0.48f, ui)
         ui.textSize = 15f
-        c.drawText(toast, W / 2f, H / 2f + 10f, ui)
-        ui.color = 0xFFC9A227.toInt()
-        c.drawText("Tap A — coba lagi", W / 2f, H / 2f + 40f, ui)
+        ui.color = 0xFFD0D4DC.toInt()
+        c.drawText(toast, W / 2f, H * 0.55f, ui)
+        // GT-style yellow lobby buttons
+        ui.color = 0xFFFFD54A.toInt()
+        c.drawRoundRect(W / 2f - 160f, H * 0.68f, W / 2f - 20f, H * 0.68f + 44f, 10f, 10f, ui)
+        ui.color = 0xFFFFE566.toInt()
+        c.drawRoundRect(W / 2f + 16f, H * 0.68f, W / 2f + 160f, H * 0.68f + 44f, 10f, 10f, ui)
+        ui.color = 0xFF2A2418.toInt()
+        ui.textSize = 14f
+        c.drawText("Lobby", W / 2f - 90f, H * 0.68f + 28f, ui)
+        c.drawText("Retry", W / 2f + 88f, H * 0.68f + 28f, ui)
     }
 
     private fun drawHud(c: Canvas, W: Int, H: Int) {
-        atlas.nine(c, atlas.btnBrown, 10, 8, 196, 108, px)
+        // Guardian Tales party card — top left
+        ui.color = 0xB20C1018.toInt()
+        c.drawRoundRect(8f, 8f, 278f, 84f, 14f, 14f, ui)
+        val face = atlas.fit(atlas.gtFace, 64, 64)
+        c.drawBitmap(face, 12f, 14f, ui)
         ui.textAlign = Paint.Align.LEFT
-        ui.textSize = 13f
-        ui.color = 0xFFFFE7A8.toInt()
-        val night = clock >= DAY
-        c.drawText("HARI $day   ${if (night) "MALAM" else "SIANG"}", 22f, 28f, ui)
-        meter(c, 22, 38, 170, hunger, atlas.barRed)
-        meter(c, 22, 56, 170, warmth, atlas.barBlue)
-        if (lit) meter(c, 22, 74, 170, fire, atlas.barGreen)
-        ui.textSize = 10f
-        ui.color = 0xEEFFFFFF.toInt()
-        c.drawText("LAPAR", 26f, 48f, ui)
-        c.drawText("HANGAT", 26f, 66f, ui)
-        if (lit) c.drawText("API", 26f, 84f, ui)
+        ui.textSize = 15f
+        ui.color = 0xFFFFFFFF.toInt()
+        c.drawText("KNIGHT", 86f, 30f, ui)
+        ui.color = 0xFF1A1E28.toInt()
+        c.drawRoundRect(86f, 36f, 266f, 50f, 4f, 4f, ui)
+        ui.color = if (hunger > 0.35f) 0xFF3DDC6A.toInt() else 0xFFE84D4D.toInt()
+        c.drawRoundRect(87f, 37f, 87f + 178f * hunger.coerceIn(0f, 1f), 49f, 3f, 3f, ui)
+        ui.color = 0xFF1A1E28.toInt()
+        c.drawRoundRect(86f, 54f, 266f, 66f, 4f, 4f, ui)
+        ui.color = 0xFF4FC3F7.toInt()
+        c.drawRoundRect(87f, 55f, 87f + 178f * warmth.coerceIn(0f, 1f), 65f, 3f, 3f, ui)
 
-        // inventory
-        val ix = W / 2 - 70
-        val iy = 12
-        slot(c, ix, iy, atlas.s(atlas.t(7, 9), 2), wood)
-        slot(c, ix + 72, iy, atlas.s(atlas.t(5, 2), 2), food)
+        ui.color = 0xB20C1018.toInt()
+        c.drawRoundRect(8f, 90f, 96f, 116f, 8f, 8f, ui)
+        c.drawRoundRect(104f, 90f, 192f, 116f, 8f, 8f, ui)
+        ui.textAlign = Paint.Align.CENTER
+        ui.textSize = 12f
+        ui.color = 0xFFFFE082.toInt()
+        c.drawText("WOOD $wood", 52f, 108f, ui)
+        ui.color = 0xFFFF8A80.toInt()
+        c.drawText("BERRY $food", 148f, 108f, ui)
+
+        ui.color = 0xB20C1018.toInt()
+        c.drawRoundRect(W - 176f, 10f, W - 62f, 50f, 12f, 12f, ui)
+        ui.textAlign = Paint.Align.CENTER
+        ui.textSize = 12f
+        ui.color = 0xFFFFFFFF.toInt()
+        val night = clock >= DAY
+        c.drawText(if (night) "NIGHT $day" else "DAY $day", W - 119f, 28f, ui)
+        ui.textSize = 10f
+        ui.color = 0xFFFFD54A.toInt()
+        val left = if (night) (DAY + NIGHT - clock) else (DAY - clock)
+        c.drawText("${left.toInt()}s", W - 119f, 44f, ui)
+        ui.color = 0xCC0C1018.toInt()
+        c.drawCircle(W - 34f, 30f, 20f, ui)
+        ui.color = 0xFFFFFFFF.toInt()
+        c.drawRoundRect(W - 41f, 20f, W - 36f, 40f, 1.5f, 1.5f, ui)
+        c.drawRoundRect(W - 32f, 20f, W - 27f, 40f, 1.5f, 1.5f, ui)
+
+        if (lit) {
+            ui.color = 0xB20C1018.toInt()
+            c.drawRoundRect(W / 2f - 72f, 10f, W / 2f + 72f, 36f, 8f, 8f, ui)
+            ui.color = 0xFFFF8A3D.toInt()
+            c.drawRoundRect(W / 2f - 64f, 18f, W / 2f - 64f + 128f * fire.coerceIn(0f, 1f), 28f, 3f, 3f, ui)
+            ui.color = 0xFFFFFFFF.toInt()
+            ui.textSize = 10f
+            c.drawText("FIRE", W / 2f, 27f, ui)
+        }
 
         if (toastT > 0) {
-            atlas.nine(c, atlas.btnBrown, W / 2 - 190, H - 132, 380, 36, px)
+            ui.color = 0xCC10141C.toInt()
+            c.drawRoundRect(W / 2f - 210f, 122f, W / 2f + 210f, 154f, 10f, 10f, ui)
             ui.textAlign = Paint.Align.CENTER
             ui.textSize = 14f
-            ui.color = 0xFFFFE7A8.toInt()
-            c.drawText(toast, W / 2f, H - 108f, ui)
+            ui.color = 0xFFFFFFFF.toInt()
+            c.drawText(toast, W / 2f, 144f, ui)
         }
-    }
-
-    private fun meter(c: Canvas, x: Int, y: Int, w: Int, v: Float, fill: Bitmap) {
-        atlas.nine(c, atlas.barWhite, x, y, w, 14, px)
-        val fw = ((w - 4) * v.coerceIn(0f, 1f)).toInt()
-        if (fw > 2) {
-            val src = Rect(0, 0, fill.width, fill.height)
-            val dst = Rect(x + 2, y + 2, x + 2 + fw, y + 12)
-            c.drawBitmap(fill, src, dst, px)
-        }
-    }
-
-    private fun slot(c: Canvas, x: Int, y: Int, icon: Bitmap, n: Int) {
-        atlas.nine(c, atlas.btnGrey, x, y, 64, 36, px)
-        c.drawBitmap(icon, x + 6f, y + 4f, px)
-        ui.textAlign = Paint.Align.LEFT
-        ui.textSize = 16f
-        ui.color = 0xFF1A1C2C.toInt()
-        c.drawText("x$n", x + 32f, y + 24f, ui)
     }
 
     private fun drawPad(c: Canvas, W: Int, H: Int) {
-        val cx = 88f
-        val cy = H - 88f
-        c.drawBitmap(atlas.s(atlas.knobDark, 2), cx - atlas.knobDark.width, cy - atlas.knobDark.height, px)
-        val kn = atlas.s(atlas.knob, 2)
-        c.drawBitmap(kn, cx - kn.width / 2f + sx * 34f, cy - kn.height / 2f + sy * 34f, px)
+        val stickR = 124
+        val stick = atlas.fit(atlas.gtStick, stickR, stickR)
+        val cx = 104f
+        val cy = H - 112f
+        c.drawBitmap(stick, cx - stickR / 2f, cy - stickR / 2f, ui)
+        val kn = atlas.fit(atlas.gtKnob, 50, 50)
+        c.drawBitmap(kn, cx - 25f + sx * 38f, cy - 25f + sy * 38f, ui)
 
-        val ax = W - 92f
-        val ay = H - 96f
-        val aBtn = atlas.s(atlas.btnRed, 1)
-        c.drawBitmap(aBtn, ax - aBtn.width / 2f, ay - aBtn.height / 2f, px)
-        ui.textAlign = Paint.Align.CENTER
-        ui.textSize = 18f
-        ui.color = 0xFFFFF3C4.toInt()
-        c.drawText("A", ax, ay + 6f, ui)
+        val atkS = if (atkDown) 108 else 118
+        val ax = W - 96f
+        val ay = H - 112f
+        val atk = atlas.fit(atlas.gtAtk, atkS, atkS)
+        c.drawBitmap(atk, ax - atkS / 2f, ay - atkS / 2f, ui)
 
-        val bx = W - 168f
-        val by = H - 72f
-        val bBtn = atlas.s(atlas.btnBrown, 1)
-        c.drawBitmap(bBtn, bx - bBtn.width / 2f, by - bBtn.height / 2f, px)
-        ui.textSize = 12f
-        c.drawText("EAT", bx, by + 4f, ui)
+        val dashS = if (dashing) 70 else 78
+        val dx = W - 196f
+        val dy = H - 80f
+        val dash = atlas.fit(atlas.gtDash, dashS, dashS)
+        c.drawBitmap(dash, dx - dashS / 2f, dy - dashS / 2f, ui)
+
+        val skS = 74
+        val skx = W - 176f
+        val sky = H - 176f
+        val old = ui.alpha
+        if (food <= 0 && mode == "play") ui.alpha = 120
+        val sk = atlas.fit(atlas.gtSkill, skS, skS)
+        c.drawBitmap(sk, skx - skS / 2f, sky - skS / 2f, ui)
+        ui.alpha = old
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
@@ -578,15 +630,36 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val i = e.actionIndex
-                val px = e.getX(i)
-                val py = e.getY(i)
+                val tx = e.getX(i)
+                val ty = e.getY(i)
                 val id = e.getPointerId(i)
                 when {
-                    hypot(px - 88f, py - (H - 88f)) < 78f -> {
-                        stickId = id; stick(px, py, H)
+                    mode == "play" && hypot(tx - (W - 34f), ty - 30f) < 26f -> {
+                        paused = !paused
+                        audio.playSfx("click", 0.7f)
                     }
-                    hypot(px - (W - 92f), py - (H - 96f)) < 46f -> interact()
-                    hypot(px - (W - 168f), py - (H - 72f)) < 40f -> eat()
+                    paused && mode == "play" -> {
+                        if (ty > H * 0.58f && ty < H * 0.58f + 50f) {
+                            audio.playSfx("click", 0.7f)
+                            if (tx < W / 2f) { mode = "title"; reset() } else paused = false
+                        }
+                    }
+                    hypot(tx - 104f, ty - (H - 112f)) < 82f -> {
+                        stickId = id; stick(tx, ty, H)
+                    }
+                    hypot(tx - (W - 96f), ty - (H - 112f)) < 60f -> {
+                        atkDown = true
+                        interact()
+                    }
+                    hypot(tx - (W - 196f), ty - (H - 80f)) < 44f -> {
+                        dashing = true
+                        audio.playSfx("click", 0.35f)
+                    }
+                    hypot(tx - (W - 176f), ty - (H - 176f)) < 42f -> eat()
+                    mode == "dead" && ty > H * 0.65f -> {
+                        audio.playSfx("click", 0.7f)
+                        if (tx < W / 2f) { mode = "title"; reset() } else { reset(); mode = "play" }
+                    }
                     mode != "play" -> interact()
                 }
             }
@@ -595,20 +668,40 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
                     if (e.getPointerId(i) == stickId) stick(e.getX(i), e.getY(i), H)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
-                if (e.getPointerId(e.actionIndex) == stickId) {
+                val id = e.getPointerId(e.actionIndex)
+                if (id == stickId) {
                     stickId = -1; sx = 0f; sy = 0f
                 }
+                dashing = false
+                atkDown = false
             }
         }
         return true
     }
 
     private fun stick(px: Float, py: Float, H: Int) {
-        var dx = px - 88f
-        var dy = py - (H - 88f)
+        var dx = px - 104f
+        var dy = py - (H - 112f)
         val len = hypot(dx, dy)
         if (len > 52f) { dx = dx / len * 52f; dy = dy / len * 52f }
         sx = (dx / 52f).coerceIn(-1f, 1f)
         sy = (dy / 52f).coerceIn(-1f, 1f)
+    }
+
+    private fun drawPause(c: Canvas, W: Int, H: Int) {
+        ui.color = 0xC0051018.toInt()
+        c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), ui)
+        ui.textAlign = Paint.Align.CENTER
+        ui.color = 0xFFFFFFFF.toInt()
+        ui.textSize = 28f
+        c.drawText("PAUSED", W / 2f, H * 0.38f, ui)
+        ui.color = 0xFFFFD54A.toInt()
+        c.drawRoundRect(W / 2f + 12f, H * 0.58f, W / 2f + 156f, H * 0.58f + 46f, 10f, 10f, ui)
+        ui.color = 0xFFE8E8E8.toInt()
+        c.drawRoundRect(W / 2f - 156f, H * 0.58f, W / 2f - 12f, H * 0.58f + 46f, 10f, 10f, ui)
+        ui.color = 0xFF2A2418.toInt()
+        ui.textSize = 15f
+        c.drawText("Lobby", W / 2f - 84f, H * 0.58f + 30f, ui)
+        c.drawText("Resume", W / 2f + 84f, H * 0.58f + 30f, ui)
     }
 }
