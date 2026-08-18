@@ -2,12 +2,11 @@ name: android-apk
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
   apk:
-    name: Build APK
+    name: Release APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,13 +18,22 @@ jobs:
       - run: yes | sdkmanager --licenses >/dev/null || true
       - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Assemble APKs
+      - name: Assemble signed release
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Check APK size
+        run: |
+          ls -lh app/build/outputs/apk/release/*.apk
+          python3 - << 'PY'
+          import os, sys
+          p = "app/build/outputs/apk/release/app-release.apk"
+          n = os.path.getsize(p)
+          print(f"apk_bytes={n} apk_mb={n/1024/1024:.2f}")
+          if n < 27 * 1024 * 1024:
+              print("WARNING: under 27MB")
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: ember-apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          name: EMBER-release
+          path: app/build/outputs/apk/release/app-release.apk

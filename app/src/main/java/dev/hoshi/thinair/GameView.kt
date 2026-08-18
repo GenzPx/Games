@@ -38,6 +38,9 @@ private const val FLOWER = 9
 
 class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnable {
     private val atlas = Atlas(ctx)
+    private val audio = Audio(ctx)
+    private var lastStep = 0f
+    private var lastTheme = ""
     private var thread: Thread? = null
     @Volatile private var running = false
 
@@ -142,6 +145,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         running = false
         try { thread?.join(500) } catch (_: InterruptedException) {}
         thread = null
+        audio.release()
     }
 
     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {
@@ -173,6 +177,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         if (hypot(sx, sy) > 0.08f) {
             dir = if (kotlin.math.abs(sx) > kotlin.math.abs(sy)) if (sx < 0) 2 else 3 else if (sy < 0) 0 else 1
             walk += dt * 9f
+            lastStep += dt
+            if (lastStep > 0.32f) { lastStep = 0f; audio.playSfx("step", 0.28f) }
             val nx = x + sx * sp * dt
             val ny = y + sy * sp * dt
             if (!solid(floor(nx).toInt(), floor(y).toInt())) x = nx.coerceIn(1.3f, MAP - 1.3f)
@@ -249,6 +255,30 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         toast = "$why  Hari ke-$day."
         toastT = 99f
         wolves.clear()
+        audio.playSfx("dead", 0.85f)
+    }
+
+    private fun pumpMusic() {
+        val track = when {
+            mode == "title" -> "audio/music/title.mp3"
+            mode == "dead" -> "audio/music/night_a.mp3"
+            clock >= DAY -> when (day % 3) {
+                0 -> "audio/music/night_a.mp3"
+                1 -> "audio/music/night_b.ogg"
+                else -> "audio/music/night_c.ogg"
+            }
+            clock > DAY - 12f -> "audio/music/dusk.mp3"
+            else -> when (day % 4) {
+                0 -> "audio/music/day_a.ogg"
+                1 -> "audio/music/day_b.ogg"
+                2 -> "audio/music/day_c.mp3"
+                else -> "audio/music/day_d.ogg"
+            }
+        }
+        if (track != lastTheme) {
+            lastTheme = track
+            audio.music(track)
+        }
     }
 
     private fun say(s: String) { toast = s; toastT = 3.4f }
@@ -257,6 +287,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
 
     private fun interact() {
         if (mode != "play") {
+            audio.playSfx("start", 0.8f)
             reset(); mode = "play"; say("Tebang pohon. Ambil berry. Isi api.")
             return
         }
@@ -268,6 +299,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
                 tiles[fy][fx] = STUMP
                 wood++
                 shake = 0.18f
+                audio.playSfx(if (wood % 2 == 0) "chop" else "chop2", 0.75f)
                 pop(fx + 0.5f, fy.toFloat(), "+1 kayu")
                 repeat(6) {
                     bits += Bit(fx + 0.5f, fy + 0.5f, rng.nextFloat() * 2 - 1, -1.2f, 0.4f, 0xFF8B5A3C.toInt())
@@ -277,6 +309,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
             BUSH -> {
                 tiles[fy][fx] = BUSH0
                 food++
+                audio.playSfx("pickup", 0.7f)
                 pop(fx + 0.5f, fy.toFloat(), "+1 berry")
                 say("Berry. Makan sebelum lapar.")
             }
@@ -496,7 +529,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback, Runnabl
         }
     }
 
-    private fun meter(c: Canvas, x: Int, y: Int, w: Int, v: Float, fill: android.graphics.Bitmap) {
+    private fun meter(c: Canvas, x: Int, y: Int, w: Int, v: Float, fill: Bitmap) {
         atlas.nine(c, atlas.barWhite, x, y, w, 14, px)
         val fw = ((w - 4) * v.coerceIn(0f, 1f)).toInt()
         if (fw > 2) {

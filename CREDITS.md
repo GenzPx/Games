@@ -15,10 +15,13 @@ A HoshiDev Expedition Systems title.
 ## Third-party assets (all free / CC0)
 
 ### Kenney.nl — CC0 (EMBER 2D)
-- Tiny Town (16×16 forest, trees, characters, tools)
-- Tiny Dungeon (torch, beasts, potions)
-- UI Pack Adventure (buttons, bars, panels)
+- Tiny Town, Tiny Dungeon, UI Pack Adventure
+- RPG Audio, Interface Sounds, Impact Sounds, Music Jingles
 - https://kenney.nl
+
+### Music (in-game loops)
+- Journey Collection — OpenGameArt, “use as you please”
+- Technodono chiptune pack (evil forest / overworld / in a blink) — OpenGameArt CC-BY-SA 4.0
 
 ### Poly Haven — CC0
 - HDRI `snowy_hillside` — Andreas Mischok
