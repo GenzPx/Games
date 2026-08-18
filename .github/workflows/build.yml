@@ -1,0 +1,99 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  worldgen:
+    name: Python world + audio
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate world tables
+        run: python3 sim/generate_world.py
+      - name: Generate audio
+        run: python3 sim/generate_audio.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated
+          path: |
+            web/js/generated.js
+            web/assets/data/world.json
+            engine/include/ta_generated.h
+
+  engine-c:
+    name: C physiology engine
+    runs-on: ubuntu-latest
+    needs: worldgen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated
+      - name: Build & test
+        run: make -C engine test
+      - name: Install emscripten
+        continue-on-error: true
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+      - name: Compile WASM
+        continue-on-error: true
+        run: |
+          source emsdk/emsdk_env.sh
+          emcc engine/src/physiology.c \
+            -I engine/include \
+            -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 \
+            -s EXPORTED_FUNCTIONS='["_ta_state_init","_ta_tick","_ta_pressure_hpa","_ta_expected_spo2","_ta_air_temp_c","_malloc","_free"]' \
+            -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPF64"]' \
+            -o web/js/thinair_engine.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-engine
+          path: |
+            web/js/thinair_engine.js
+            web/js/thinair_engine.wasm
+
+  kotlin:
+    name: Kotlin expedition logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test
+        run: gradle :game:jvmTest --no-daemon
+
+  web-package:
+    name: Package playable client
+    runs-on: ubuntu-latest
+    needs: [worldgen, engine-c, kotlin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasm-engine
+          path: web/js
+      - name: Verify client
+        run: |
+          test -f web/index.html
+          test -f web/js/game.js
+          test -f engine/thinair-sim || true
+          find web -type f | wc -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thin-air-web
+          path: web

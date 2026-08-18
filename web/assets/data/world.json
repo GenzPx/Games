@@ -1,0 +1,226 @@
+{
+  "name": "Chomo Hoshi",
+  "localName": "The Morning Star",
+  "elevation": 8849.0,
+  "worldM": 2400.0,
+  "baseAlt": 4280.0,
+  "hmSize": 256,
+  "constants": {
+    "SEA_LEVEL_SPO2": 98.0,
+    "DEATH_ZONE_M": 8000.0,
+    "HAPE_SPO2_TRIGGER": 62.0,
+    "HACE_CLARITY_TRIGGER": 0.35,
+    "HYPOTHERMIA_C": 35.0,
+    "SEVERE_HYPO_C": 32.0,
+    "COLLAPSE_SPO2": 46.0,
+    "DEATH_ZONE_HOURS": 18.0,
+    "BASE_CORE_C": 36.8,
+    "VO2_SEA": 52.0,
+    "O2_BOTTLE_MIN": 6.0,
+    "O2_FLOW_LPM": 2.5
+  },
+  "route": [
+    {
+      "id": "approach",
+      "name": "Lembah Pendekatan",
+      "u": 0.505,
+      "v": 0.168,
+      "x": 12.0,
+      "z": -796.8,
+      "alt": 4913.5,
+      "h": 0.13866064393976982
+    },
+    {
+      "id": "bc",
+      "name": "Base Camp",
+      "u": 0.502,
+      "v": 0.205,
+      "x": 4.8,
+      "z": -708.0,
+      "alt": 5314.2,
+      "h": 0.22634588107407588
+    },
+    {
+      "id": "icefall",
+      "name": "Icefall",
+      "u": 0.498,
+      "v": 0.248,
+      "x": -4.8,
+      "z": -604.8,
+      "alt": 5455.9,
+      "h": 0.25735642462590635
+    },
+    {
+      "id": "c1",
+      "name": "Camp I",
+      "u": 0.5,
+      "v": 0.292,
+      "x": 0.0,
+      "z": -499.2,
+      "alt": 6431.0,
+      "h": 0.47077775872759164
+    },
+    {
+      "id": "western",
+      "name": "Western Cwm",
+      "u": 0.496,
+      "v": 0.348,
+      "x": -9.6,
+      "z": -364.8,
+      "alt": 6951.9,
+      "h": 0.5847892426655071
+    },
+    {
+      "id": "c2",
+      "name": "Camp II",
+      "u": 0.494,
+      "v": 0.402,
+      "x": -14.4,
+      "z": -235.2,
+      "alt": 8004.9,
+      "h": 0.8152500820690551
+    },
+    {
+      "id": "lhotse",
+      "name": "Lhotse Face",
+      "u": 0.49,
+      "v": 0.458,
+      "x": -24.0,
+      "z": -100.8,
+      "alt": 8830.2,
+      "h": 0.9958868417642541
+    },
+    {
+      "id": "c3",
+      "name": "Camp III",
+      "u": 0.492,
+      "v": 0.508,
+      "x": -19.2,
+      "z": 19.2,
+      "alt": 8849.0,
+      "h": 1.0
+    },
+    {
+      "id": "yellow",
+      "name": "Yellow Band",
+      "u": 0.496,
+      "v": 0.548,
+      "x": -9.6,
+      "z": 115.2,
+      "alt": 8849.0,
+      "h": 1.0
+    },
+    {
+      "id": "c4",
+      "name": "Camp IV / South Col",
+      "u": 0.5,
+      "v": 0.575,
+      "x": 0.0,
+      "z": 180.0,
+      "alt": 8849.0,
+      "h": 1.0
+    },
+    {
+      "id": "balcony",
+      "name": "The Balcony",
+      "u": 0.502,
+      "v": 0.598,
+      "x": 4.8,
+      "z": 235.2,
+      "alt": 8849.0,
+      "h": 1.0
+    },
+    {
+      "id": "hillary",
+      "name": "Hillary Step",
+      "u": 0.5,
+      "v": 0.612,
+      "x": 0.0,
+      "z": 268.8,
+      "alt": 8849.0,
+      "h": 1.0
+    },
+    {
+      "id": "summit",
+      "name": "Summit",
+      "u": 0.5,
+      "v": 0.622,
+      "x": 0.0,
+      "z": 292.8,
+      "alt": 8849.0,
+      "h": 1.0
+    }
+  ],
+  "camps": [
+    {
+      "id": "bc",
+      "name": "Base Camp",
+      "u": 0.502,
+      "v": 0.205,
+      "x": 4.8,
+      "z": -708.0,
+      "alt": 5314.2,
+      "h": 0.22634588107407588,
+      "index": 0,
+      "shelter": true,
+      "o2_cache": 0,
+      "food": 3
+    },
+    {
+      "id": "c1",
+      "name": "Camp I",
+      "u": 0.5,
+      "v": 0.292,
+      "x": 0.0,
+      "z": -499.2,
+      "alt": 6431.0,
+      "h": 0.47077775872759164,
+      "index": 1,
+      "shelter": true,
+      "o2_cache": 0,
+      "food": 1
+    },
+    {
+      "id": "c2",
+      "name": "Camp II",
+      "u": 0.494,
+      "v": 0.402,
+      "x": -14.4,
+      "z": -235.2,
+      "alt": 8004.9,
+      "h": 0.8152500820690551,
+      "index": 2,
+      "shelter": true,
+      "o2_cache": 1,
+      "food": 1
+    },
+    {
+      "id": "c3",
+      "name": "Camp III",
+      "u": 0.492,
+      "v": 0.508,
+      "x": -19.2,
+      "z": 19.2,
+      "alt": 8849.0,
+      "h": 1.0,
+      "index": 3,
+      "shelter": true,
+      "o2_cache": 2,
+      "food": 1
+    },
+    {
+      "id": "c4",
+      "name": "Camp IV / South Col",
+      "u": 0.5,
+      "v": 0.575,
+      "x": 0.0,
+      "z": 180.0,
+      "alt": 8849.0,
+      "h": 1.0,
+      "index": 4,
+      "shelter": true,
+      "o2_cache": 2,
+      "food": 1
+    }
+  ]
+}

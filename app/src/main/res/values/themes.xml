@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ThinAir" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#05070C</item>
+        <item name="android:statusBarColor">#05070C</item>
+        <item name="android:navigationBarColor">#05070C</item>
+        <item name="colorPrimary">#C9A227</item>
+        <item name="colorAccent">#C9A227</item>
+    </style>
+    <style name="Theme.ThinAir.Fullscreen" parent="Theme.ThinAir">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>

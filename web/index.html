@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#05070c" />
+    <title>THIN AIR — HoshiDev</title>
+    <link rel="icon" href="assets/ui/hoshidev-logo.png" />
+    <link rel="stylesheet" href="css/game.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./js/vendor/three.module.js",
+          "three/addons/": "./js/vendor/addons/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="fx"></div>
+    <div id="chroma"></div>
+    <div id="frost"></div>
+
+    <button id="btn-lang" type="button">EN</button>
+
+    <section id="screen-splash" class="screen on">
+      <img src="assets/ui/hoshidev-logo.png" alt="HoshiDev" />
+      <div class="mark">Expedition Systems</div>
+    </section>
+
+    <section id="screen-title" class="screen">
+      <div class="stack">
+        <div class="studio"><img src="assets/ui/hoshidev-logo.png" alt="" /> HoshiDev</div>
+        <h1>Thin Air<span>Chomo Hoshi · 8.849 m</span></h1>
+        <p id="copy-start">Klik untuk mulai mendaki</p>
+        <button id="btn-begin" type="button">Play</button>
+      </div>
+    </section>
+
+    <section id="screen-brief" class="screen">
+      <div class="panel">
+        <h2 id="brief-title">Cara main</h2>
+        <div id="brief-body"></div>
+        <div class="row"><button id="btn-climb" type="button">Naik gunung</button></div>
+      </div>
+    </section>
+
+    <section id="screen-load" class="screen">
+      <div class="panel">
+        <h2>HoshiDev</h2>
+        <p>Nyusun gunung…</p>
+        <div class="load"><div id="load-bar"></div></div>
+      </div>
+    </section>
+
+    <section id="screen-pause" class="screen">
+      <div class="panel">
+        <h2 id="pause-title">JEDA</h2>
+        <div class="row"><button id="btn-resume" type="button">Lanjut</button></div>
+      </div>
+    </section>
+
+    <section id="screen-end" class="screen">
+      <div class="panel">
+        <div class="kicker" id="end-kicker"></div>
+        <h2 id="end-title"></h2>
+        <p id="end-copy"></p>
+        <div id="end-meta"></div>
+        <div class="row">
+          <button id="btn-again" type="button">Ulangi</button>
+          <button id="btn-menu-die" type="button">Menu</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="hud">
+      <div class="watermark">
+        <img src="assets/ui/hoshidev-logo.png" alt="" />
+        <b>HOSHIDEV</b>
+      </div>
+      <div class="top-center">
+        <div id="v-alt">5364 m</div>
+        <div class="sub"><span id="v-time">Hari 1  04:33</span> · <span id="v-wx">Cerah</span> · O₂ <span id="v-o2">2</span> · SpO₂ <span id="v-spo2">82</span></div>
+        <div id="climb-flag" class="flag">CLIMB</div>
+        <div id="tent-flag" class="flag">TENDA</div>
+      </div>
+      <div id="radio-log"></div>
+      <div id="prompt"></div>
+      <div id="interact"></div>
+      <div id="camp-hint"></div>
+      <div class="stam-wrap">
+        <div class="stam-label">STAMINA</div>
+        <div class="stam-bar"><i id="stam-fill"></i></div>
+      </div>
+    </div>
+
+    <div id="touch-ui" hidden>
+      <div id="stick" class="stick">
+        <div id="stick-knob" class="stick-knob"></div>
+      </div>
+      <div class="touch-actions">
+        <button type="button" class="tbtn tbtn-hold" id="btn-climb-hold">PANJAT</button>
+        <button type="button" class="tbtn tbtn-hold" id="btn-run-hold">LARI</button>
+        <div class="touch-row">
+          <button type="button" class="tbtn tbtn-sm" id="btn-tent">TENDA</button>
+          <button type="button" class="tbtn tbtn-sm" id="btn-eat">MAKAN</button>
+          <button type="button" class="tbtn tbtn-sm" id="btn-o2">O₂</button>
+        </div>
+      </div>
+      <button type="button" class="tbtn tbtn-pause" id="btn-pause">II</button>
+      <div id="rotate-hint">Putar HP ke landscape — lebih enak</div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#05070C">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingTop="10dp">
+
+        <TextView
+            android:id="@+id/txtAlt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="5364 m"
+            android:textColor="#E8E0D2"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtSpo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SpO₂"
+            android:textColor="#C9C2B4"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/txtStam"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text="STAMINA"
+            android:textColor="#C9A227"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtPrompt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="118dp"
+        android:padding="8dp"
+        android:text="HoshiDev"
+        android:textColor="#E8E0D2"
+        android:textSize="13sp" />
+
+    <dev.hoshi.thinair.JoystickView
+        android:id="@+id/stick"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="12dp"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnClimb"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:text="PANJAT"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btnRun"
+            android:layout_width="72dp"
+            android:layout_height="48dp"
+            android:text="LARI"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/btnTent" android:layout_width="wrap_content" android:layout_height="40dp" android:text="TENDA" android:textSize="10sp" />
+            <Button android:id="@+id/btnEat" android:layout_width="wrap_content" android:layout_height="40dp" android:text="MAKAN" android:textSize="10sp" />
+            <Button android:id="@+id/btnO2" android:layout_width="wrap_content" android:layout_height="40dp" android:text="O2" android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

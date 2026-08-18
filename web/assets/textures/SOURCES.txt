@@ -1,0 +1,6 @@
+CC0 textures and HDRI from Poly Haven
+https://polyhaven.com
+
+- snow_02 (diff / nor_gl / rough) 1K JPG
+- rock_face (diff / nor_gl / rough) 1K JPG
+- snowy_hillside HDRI 2K + tonemapped JPG (Andreas Mischok)
