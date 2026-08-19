@@ -34,11 +34,10 @@ else()
 endif()
 
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(main PRIVATE MA_NO_RUNTIME_LINKING)
+target_compile_definitions(main PRIVATE MA_NO_RUNTIME_LINKING MA_NO_AAUDIO)
 target_link_libraries(main
     ${_sdl}
     android
     log
-    aaudio
     OpenSLES
 )

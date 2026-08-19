@@ -5,6 +5,7 @@
 
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_RUNTIME_LINKING
+#define MA_NO_AAUDIO
 #include "miniaudio.h"
 
 struct SdlVfs {
