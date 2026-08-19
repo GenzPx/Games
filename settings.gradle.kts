@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "thin-air"
+rootProject.name = "LastSurvival"
 include(":app")

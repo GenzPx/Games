@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -8,13 +11,17 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ThinAir">
+        android:hardwareAccelerated="true"
+        android:theme="@style/Theme.LastSurvival">
+
         <activity
-            android:name=".MainActivity"
+            android:name="game.lastsrvl.me.LastSurvivalActivity"
             android:exported="true"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout"
+            android:alwaysRetainTaskState="true"
+            android:launchMode="singleInstance"
+            android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:screenOrientation="sensorLandscape"
-            android:theme="@style/Theme.ThinAir.Fullscreen">
+            android:theme="@style/Theme.LastSurvival.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

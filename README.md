@@ -1,15 +1,13 @@
-# EMBER
+# Last Survival
 
-**HoshiDev** — 2D pixel survival. Release APK only.
+**HoshiDev / GenzPX** — 2D HD-pixel action survival. Native C++ / SDL2. Release APK only.
 
-Jaga api. Cari kayu. Jangan kedinginan.
-
-HUD style: Guardian Tales (party portrait, ATK / DASH / SKILL, underfoot HP).
-Full soundtrack + SFX.
+Jaga api tujuh malam. Tebang. Makan. Jangan sendirian di gelap.
 
 ```bash
 ./gradlew :app:assembleRelease
 # app/build/outputs/apk/release/app-release.apk
 ```
 
-GitHub Actions uploads **EMBER-release** (signed, no debug).
+Package: `game.lastsrvl.me`  
+Artifact: **LastSurvival-release** (signed, no debug, ≥ 60MB).

@@ -1,29 +1,33 @@
-# Credits — EMBER
+# Credits — Last Survival
 
-A HoshiDev title.
-
-## Studio
-- **HoshiDev** — design, engineering
+A HoshiDev title. Author: GenzPX.
 
 ## Stack
-- **Kotlin** — Android Canvas survival loop
-- **GitHub Actions** — signed release APK
+- **C++** — game loop, world, combat, dialog, survival
+- **SDL2** — window, input, renderer (library, not an engine)
+- **miniaudio / stb** — audio decode, images, fonts
+- **Android NDK + Gradle** — signed release APK
 
-## Third-party assets (free / CC0)
+## Third-party
 
 ### Kenney.nl — CC0
-- Tiny Town, Tiny Dungeon (world tiles)
-- UI Pack Adventure (legacy chrome)
-- RPG Audio, Interface Sounds, Impact Sounds
+- Tiny Town, Tiny Dungeon (ground tiles)
+- RPG / interface SFX
 - https://kenney.nl
 
-### Music (in-game loops)
-- Journey Collection — OpenGameArt, “use as you please”
-- Technodono chiptune pack — OpenGameArt CC-BY-SA 4.0
+### Peter Moore — incompetech.com — CC-BY
+- Intrepid, Darkest Child, Oppressive Gloom, Anguish, Long Note Four, The Complex
+- https://incompetech.com
+
+### Other music
+- Journey Collection / Technodono packs — OpenGameArt (use as you please / CC-BY-SA)
+
+### Fonts
+- Noto Sans Bold — SIL OFL
+- Press Start 2P — SIL OFL
 
 ## HUD
-Combat / party HUD layout inspired by **Guardian Tales** (Kakao Games).
-Original chrome, portrait, and buttons created for EMBER. Not affiliated.
+Layout inspired by Guardian Tales (Kakao Games). Original chrome for Last Survival. Not affiliated.
 
-## License of this game
+## License
 See `LICENSE`.

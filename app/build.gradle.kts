@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    kotlin("android")
 }
 
 val keystoreProps = Properties().apply {
@@ -11,15 +10,24 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "dev.hoshi.thinair"
+    namespace = "game.lastsrvl.me"
     compileSdk = 35
+    ndkVersion = "26.3.11579264"
 
     defaultConfig {
-        applicationId = "dev.hoshi.thinair"
+        applicationId = "game.lastsrvl.me"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "3.1.0"
+        versionCode = 1
+        versionName = "1.0.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-26")
+            }
+        }
     }
 
     signingConfigs {
@@ -46,14 +54,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
 
     packaging {
+        jniLibs {
+            keepDebugSymbols += listOf("**/*.so")
+        }
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
-}
-
-dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
 }
